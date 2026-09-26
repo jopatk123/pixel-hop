@@ -59,8 +59,8 @@ const GameCamera := preload("res://scripts/game_camera.gd")
 @export_group("反馈")
 ## 死亡时震屏强度
 @export var death_shake_strength := 6.0
-## 落地时震屏强度（0 为关闭）
-@export var land_shake_strength := 2.0
+## 落地时震屏强度。每次落地都会触发，给大了等于全程在抖，看着晕，所以只留一点点
+@export var land_shake_strength := 1.0
 ## 死亡顿帧时长（秒）
 @export var death_hit_stop_duration := 0.07
 ## 死亡顿帧时的时间缩放
@@ -177,7 +177,7 @@ func revive_at(point: Vector2) -> void:
 	is_dying = false
 	set_collision_layer_value(2, true)
 	_visual.modulate = Color.WHITE
-	_camera.reset_follow_state()
+	_camera.reset_state()
 
 
 ## 让相机抖一下，强度自适应视口尺寸（640x360 上 3~6 已经很明显）

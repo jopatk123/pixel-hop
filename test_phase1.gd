@@ -84,9 +84,6 @@ func _test_camera_shake() -> void:
 	_expect("震屏强度会衰减回零", camera.call("get_shake_strength") < 0.05,
 			str(camera.call("get_shake_strength")))
 
-	var look_ahead: float = camera.get("look_ahead_distance")
-	_expect("相机前瞻参数已暴露", look_ahead > 0.0, str(look_ahead))
-
 
 func _test_jump_heights() -> void:
 	await _wait_physics(30)

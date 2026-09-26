@@ -3,7 +3,7 @@
 个人爱好向的 2D 平台跳跃小游戏，用 Godot 4.7 做着玩、顺便练手，**不打算对外发布**。
 
 目前处于**垂直切片**阶段：一个能从头玩到尾的关卡已经跑通，正在打磨手感、音效和反馈层。
-画面是程序生成的占位色块；音效与 BGM 已随仓库附带（由 `tools/gen_sfx.py` 生成），克隆即可听到声音。
+画面是程序生成的占位色块；音效与 BGM 已随仓库附带（音效用 jsfxr 生成、BGM 用 `tools/gen_sfx.py` 生成），克隆即可听到声音。
 
 ## 操作
 
@@ -54,7 +54,9 @@ scripts/           所有 GDScript
   effects.gd         一次性粒子特效
   game_camera.gd     带震屏的相机
 assets/audio/      音效与背景音乐（wav）
-tools/gen_sfx.py   程序化生成全部音效与 BGM
+assets/fonts/      界面默认字体（SystemFont，用系统里的中文字体）
+tools/gen_sfx_jsfxr.js  用 jsfxr 程序化生成全部音效（SFX）
+tools/gen_sfx.py   程序化生成背景音乐（BGM）
 test_phase1.gd     无头模式冒烟测试
 ```
 
@@ -74,8 +76,9 @@ test_phase1.gd     无头模式冒烟测试
 - **玩家**（`player.gd` → 检查器「反馈」）：`death_shake_strength`、`land_shake_strength`、
   `death_hit_stop_duration` / `death_hit_stop_scale`、`flash_duration`、`turn_dust_speed_threshold`
 - **敌人**（`enemy.gd` →「反馈」）：踩头顿帧与震屏 `stomp_hit_stop_*`、`stomp_shake_strength`
-- **相机**（`game_camera.gd`）：`look_ahead_distance`、`look_ahead_speed`、
-  `vertical_deadzone`、`vertical_follow_speed`、`default_shake_duration`
+- **相机**（`game_camera.gd`）：`default_shake_duration`、`shake_frequency`
+- 相机不做前瞻：镜头严格跟着玩家，不会在跑动/停手时额外滑动
+- 相机纵向不跟随：关卡正好一屏高，纵向 limit 已经把镜头钉死，任何纵向偏移都会让整屏跟着玩家上下晃
 
 粒子种类与颜色集中在 `effects.gd` 顶部的常量字典里。
 
@@ -89,14 +92,20 @@ test_phase1.gd     无头模式冒烟测试
 
 ### 重新生成音频
 
-需要改音色时，只动生成器顶部的参数，然后：
+音效和 BGM 分别由两个生成器负责，改音色时只动各自顶部的参数表：
 
 ```bash
-python3 tools/gen_sfx.py
-godot --path . --import   # 让 Godot 重新导入 wav
+node tools/gen_sfx_jsfxr.js   # 音效（需要同级目录下有 jsfxr 仓库）
+python3 tools/gen_sfx.py      # BGM
+godot --path . --import       # 让 Godot 重新导入 wav
 ```
 
-`tools/gen_sfx.py` 仅用 Python 标准库，合成 sfxr 风格的短音效和约 8 小节的 chiptune BGM（128 BPM，整小节循环）。
+`tools/gen_sfx_jsfxr.js` 调用 [jsfxr](https://github.com/chr15m/jsfxr)（sfxr 的 JS 移植）合成 11 个音效；
+每个音效的时长和峰值都对齐了旧版 `gen_sfx.py` 的数值，替换后游戏里的响度平衡不变。
+参数表里的 `base` 换算成频率是 `3528 * (base^2 + 0.001)` Hz，`ramp` 是连乘式扫频、幅度别超过 0.3。
+
+`tools/gen_sfx.py` 仅用 Python 标准库，合成约 8 小节的 chiptune BGM（128 BPM，整小节循环）。
+它早期版本也生成音效，现已交给 `gen_sfx_jsfxr.js`——**不要再单独跑它来改音效**，否则会把 SFX 覆盖回旧音色。
 
 也支持自行替换为 wav / ogg / mp3（例如 [sfxr.me](https://sfxr.me) 导出的素材），文件名保持一致即可。
 
