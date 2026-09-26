@@ -4,6 +4,8 @@ extends Area2D
 const INACTIVE_COLOR := Color(0.42, 0.45, 0.55)
 const ACTIVE_COLOR := Color(0.06, 0.86, 0.47)
 
+const Effects := preload("res://scripts/effects.gd")
+
 ## 点亮时把复活点位置（检查点坐标 + 偏移）发给关卡
 signal activated(spawn_point: Vector2)
 
@@ -26,4 +28,5 @@ func _on_body_entered(body: Node2D) -> void:
 	is_active = true
 	_visual.color = ACTIVE_COLOR
 	Audio.play("checkpoint")
+	Effects.checkpoint_burst(get_parent(), global_position)
 	activated.emit(global_position + spawn_offset)

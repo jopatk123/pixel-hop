@@ -56,6 +56,20 @@ const GameCamera := preload("res://scripts/game_camera.gd")
 ## 按「下 + 跳」时忽略单向平台的时长（秒）
 @export var drop_through_time := 0.25
 
+@export_group("反馈")
+## 死亡时震屏强度
+@export var death_shake_strength := 6.0
+## 落地时震屏强度（0 为关闭）
+@export var land_shake_strength := 2.0
+## 死亡顿帧时长（秒）
+@export var death_hit_stop_duration := 0.07
+## 死亡顿帧时的时间缩放
+@export var death_hit_stop_scale := 0.06
+## 起跳/受伤闪白时长
+@export var flash_duration := 0.08
+## 水平速度低于此值时不算「在跑」
+@export var turn_dust_speed_threshold := 48.0
+
 ## 死亡时抛出，关卡据此扣命或结算
 signal died
 
@@ -76,6 +90,8 @@ var _variable_jump := false
 var _was_on_floor := false
 var _ignored_platform: Node = null
 var _squash_tween: Tween = null
+var _flash_tween: Tween = null
+var _last_facing := 0.0
 
 @onready var _visual: ColorRect = $Visual
 @onready var _camera: GameCamera = $Camera2D
@@ -101,6 +117,7 @@ func _physics_process(delta: float) -> void:
 	var fall_speed := velocity.y
 	move_and_slide()
 	_handle_landing(fall_speed)
+	_handle_turn_dust()
 
 	if global_position.y > FALL_OUT_Y:
 		die()
@@ -139,7 +156,9 @@ func die() -> void:
 
 	Audio.play("hurt")
 	Effects.death(get_parent(), global_position)
-	shake_camera(5.0)
+	_flash(Color(1.0, 0.45, 0.4))
+	shake_camera(death_shake_strength, 0.32)
+	Effects.hit_stop(get_tree(), death_hit_stop_duration, death_hit_stop_scale)
 	died.emit()
 
 
@@ -158,7 +177,7 @@ func revive_at(point: Vector2) -> void:
 	is_dying = false
 	set_collision_layer_value(2, true)
 	_visual.modulate = Color.WHITE
-	_camera.reset_smoothing()
+	_camera.reset_follow_state()
 
 
 ## 让相机抖一下，强度自适应视口尺寸（640x360 上 3~6 已经很明显）
@@ -173,7 +192,24 @@ func _handle_landing(fall_speed: float) -> void:
 		Audio.play("land", -6.0, randf_range(0.94, 1.06))
 		Effects.dust(get_parent(), global_position + Vector2(0.0, _visual.size.y * 0.5))
 		_play_squash(LAND_SQUASH)
+		if land_shake_strength > 0.0:
+			shake_camera(land_shake_strength, 0.14)
 	_was_on_floor = on_floor
+
+
+func _handle_turn_dust() -> void:
+	if not is_on_floor():
+		return
+
+	var facing := signf(velocity.x)
+	if absf(velocity.x) < turn_dust_speed_threshold:
+		_last_facing = facing
+		return
+
+	if _last_facing != 0.0 and facing != 0.0 and facing != _last_facing:
+		var at := global_position + Vector2(0.0, _visual.size.y * 0.5)
+		Effects.turn_dust(get_parent(), at, _last_facing)
+	_last_facing = facing
 
 
 ## 挤压拉伸：设好比例后交给 tween 弹回原样
@@ -189,6 +225,14 @@ func _stop_squash() -> void:
 		_squash_tween.kill()
 	_squash_tween = null
 	_visual.scale = Vector2.ONE
+
+
+func _flash(color: Color) -> void:
+	if _flash_tween != null and _flash_tween.is_valid():
+		_flash_tween.kill()
+	_visual.modulate = color
+	_flash_tween = create_tween()
+	_flash_tween.tween_property(_visual, "modulate", Color.WHITE, flash_duration)
 
 
 func _update_timers(delta: float) -> void:
@@ -238,7 +282,9 @@ func _handle_jump() -> void:
 	_coyote_timer = 0.0
 	_was_on_floor = false
 	Audio.play("jump", 0.0, randf_range(0.96, 1.04))
+	Effects.jump_dust(get_parent(), global_position + Vector2(0.0, _visual.size.y * 0.5))
 	_play_squash(JUMP_STRETCH)
+	_flash(Color(1.15, 1.15, 1.15))
 
 
 func _handle_horizontal(delta: float) -> void:
