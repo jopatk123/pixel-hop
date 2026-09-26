@@ -1,0 +1,24 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/one_way_platform.gd" id="1_one_way_platform"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_one_way_platform"]
+size = Vector2(96, 10)
+
+[node name="OneWayPlatform" type="StaticBody2D" groups=["one_way"]]
+collision_layer = 1
+collision_mask = 1
+script = ExtResource("1_one_way_platform")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_one_way_platform")
+one_way_collision = true
+one_way_collision_margin = 2.0
+
+[node name="Visual" type="ColorRect" parent="."]
+offset_left = -48.0
+offset_top = -5.0
+offset_right = 48.0
+offset_bottom = 5.0
+color = Color(0.34, 0.52, 0.58, 1)
+mouse_filter = 2
