@@ -1,12 +1,11 @@
 extends Node2D
-## 一次性粒子特效：不建场景文件，需要时现场拼一个 CPUParticles2D 播完自毁。
+## 一次性粒子特效 + 顿帧：不建场景文件，需要时现场拼 CPUParticles2D 播完自毁。
 ## 调用方用 const Effects := preload("res://scripts/effects.gd") 直接调静态方法。
-## 参数都集中在这里，想改观感只动这一处。
 
-## 粒子贴图只生成一次，是张中间亮边缘透明的小圆点
 static var _dot_texture: Texture2D
+static var _hit_stop_running := false
 
-## 落地扬尘：向上扬起再被重力拉回地面
+## 落地扬尘
 const DUST := {
 	"color": Color(0.74, 0.78, 0.88),
 	"amount": 8,
@@ -20,54 +19,119 @@ const DUST := {
 	"radius": 4.0,
 }
 
-## 金币星芒：金色小点四散
+## 起跳扬尘（比落地少一点）
+const JUMP_DUST := {
+	"color": Color(0.70, 0.74, 0.86),
+	"amount": 5,
+	"lifetime": 0.22,
+	"spread": 45.0,
+	"velocity_min": 15.0,
+	"velocity_max": 45.0,
+	"gravity": Vector2(0.0, 280.0),
+	"scale_min": 0.6,
+	"scale_max": 1.4,
+	"radius": 3.0,
+}
+
+## 急停/转向扬尘
+const TURN_DUST := {
+	"color": Color(0.68, 0.72, 0.84),
+	"amount": 6,
+	"lifetime": 0.25,
+	"spread": 35.0,
+	"velocity_min": 20.0,
+	"velocity_max": 55.0,
+	"gravity": Vector2(0.0, 300.0),
+	"scale_min": 0.7,
+	"scale_max": 1.5,
+	"radius": 3.5,
+	"direction": Vector2.ZERO,
+}
+
 const SPARKLE := {
 	"color": Color(1.0, 0.85, 0.35),
-	"amount": 10,
-	"lifetime": 0.35,
+	"amount": 12,
+	"lifetime": 0.38,
 	"spread": 180.0,
-	"velocity_min": 40.0,
-	"velocity_max": 90.0,
-	"gravity": Vector2(0.0, 120.0),
+	"velocity_min": 45.0,
+	"velocity_max": 100.0,
+	"gravity": Vector2(0.0, 100.0),
 	"scale_min": 0.8,
-	"scale_max": 1.6,
+	"scale_max": 1.8,
 	"radius": 3.0,
 	"explosiveness": 1.0,
 }
 
-## 踩死敌人：向两侧炸开的碎块
 const STOMP := {
 	"color": Color(0.85, 0.45, 0.7),
-	"amount": 12,
-	"lifetime": 0.40,
-	"spread": 80.0,
-	"velocity_min": 50.0,
-	"velocity_max": 110.0,
+	"amount": 14,
+	"lifetime": 0.42,
+	"spread": 85.0,
+	"velocity_min": 55.0,
+	"velocity_max": 120.0,
 	"gravity": Vector2(0.0, 420.0),
 	"scale_min": 1.0,
-	"scale_max": 2.2,
+	"scale_max": 2.4,
 	"radius": 5.0,
 	"explosiveness": 1.0,
 }
 
-## 玩家死亡：红色碎块向上炸开，比踩敌人大一圈
 const DEATH := {
 	"color": Color(0.95, 0.42, 0.35),
-	"amount": 16,
-	"lifetime": 0.55,
-	"spread": 100.0,
-	"velocity_min": 60.0,
-	"velocity_max": 150.0,
+	"amount": 18,
+	"lifetime": 0.58,
+	"spread": 110.0,
+	"velocity_min": 65.0,
+	"velocity_max": 160.0,
 	"gravity": Vector2(0.0, 380.0),
 	"scale_min": 1.2,
-	"scale_max": 2.6,
+	"scale_max": 2.8,
 	"radius": 6.0,
+	"explosiveness": 1.0,
+}
+
+const SPRING := {
+	"color": Color(0.35, 0.95, 0.55),
+	"amount": 10,
+	"lifetime": 0.35,
+	"spread": 55.0,
+	"velocity_min": 80.0,
+	"velocity_max": 160.0,
+	"gravity": Vector2(0.0, -40.0),
+	"scale_min": 0.9,
+	"scale_max": 2.0,
+	"radius": 4.0,
+	"explosiveness": 0.95,
+	"direction": Vector2.UP,
+}
+
+const CHECKPOINT := {
+	"color": Color(0.2, 0.95, 0.65),
+	"amount": 16,
+	"lifetime": 0.45,
+	"spread": 180.0,
+	"velocity_min": 35.0,
+	"velocity_max": 95.0,
+	"gravity": Vector2(0.0, 60.0),
+	"scale_min": 0.9,
+	"scale_max": 2.2,
+	"radius": 5.0,
 	"explosiveness": 1.0,
 }
 
 
 static func dust(parent: Node, at: Vector2) -> void:
 	_spawn(parent, at, DUST)
+
+
+static func jump_dust(parent: Node, at: Vector2) -> void:
+	_spawn(parent, at, JUMP_DUST)
+
+
+static func turn_dust(parent: Node, at: Vector2, facing: float) -> void:
+	var cfg := TURN_DUST.duplicate()
+	cfg["direction"] = Vector2(-signf(facing), -0.2)
+	_spawn(parent, at, cfg)
 
 
 static func sparkle(parent: Node, at: Vector2) -> void:
@@ -82,7 +146,27 @@ static func death(parent: Node, at: Vector2) -> void:
 	_spawn(parent, at, DEATH)
 
 
-## 挂到 parent 下、播完自己销毁。父节点取调用方所在的场景层，粒子就不会跟着角色跑。
+static func spring_burst(parent: Node, at: Vector2) -> void:
+	_spawn(parent, at, SPRING)
+
+
+static func checkpoint_burst(parent: Node, at: Vector2) -> void:
+	_spawn(parent, at, CHECKPOINT)
+
+
+## 短顿帧（踩敌 / 死亡）：按物理帧计数，避免全局 time_scale 与 headless 测试不同步。
+static func hit_stop(tree: SceneTree, duration := 0.05, time_scale := 0.07) -> void:
+	if tree == null or _hit_stop_running:
+		return
+	_hit_stop_running = true
+	Engine.time_scale = time_scale
+	var frames := maxi(2, int(duration * 60.0))
+	for _i in frames:
+		await tree.physics_frame
+	Engine.time_scale = 1.0
+	_hit_stop_running = false
+
+
 static func _spawn(parent: Node, at: Vector2, config: Dictionary) -> void:
 	if parent == null or not is_instance_valid(parent) or not parent.is_inside_tree():
 		return
@@ -91,7 +175,7 @@ static func _spawn(parent: Node, at: Vector2, config: Dictionary) -> void:
 	particles.texture = _dot()
 	particles.one_shot = true
 	particles.emitting = false
-	particles.direction = Vector2.UP
+	particles.direction = config.get("direction", Vector2.UP)
 	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
 	particles.emission_sphere_radius = config.get("radius", 4.0)
 	particles.amount = config.get("amount", 10)
@@ -111,7 +195,6 @@ static func _spawn(parent: Node, at: Vector2, config: Dictionary) -> void:
 	particles.finished.connect(particles.queue_free)
 
 
-## 8x8 的柔边圆点：没有贴图时 CPUParticles2D 只有 1px，缩放了也看不清
 static func _dot() -> Texture2D:
 	if _dot_texture != null:
 		return _dot_texture

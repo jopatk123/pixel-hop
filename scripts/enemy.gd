@@ -17,6 +17,11 @@ const Effects := preload("res://scripts/effects.gd")
 ## 被踩中后给玩家的反弹速度
 @export var stomp_bounce_velocity := -220.0
 
+@export_group("反馈")
+@export var stomp_hit_stop_duration := 0.045
+@export var stomp_hit_stop_scale := 0.08
+@export var stomp_shake_strength := 3.5
+
 var _direction := -1.0
 var _origin_x := 0.0
 var _dead := false
@@ -53,7 +58,7 @@ func _on_hitbox_body_entered(body: Node2D) -> void:
 		return
 
 	if _is_stomped_by(body):
-		_squash()
+		_squash(body)
 		body.bounce(stomp_bounce_velocity)
 	else:
 		body.die()
@@ -64,7 +69,7 @@ func _is_stomped_by(body: Node2D) -> bool:
 	return body.velocity.y > 0.0 and body.global_position.y < global_position.y - MIN_STOMP_OFFSET
 
 
-func _squash() -> void:
+func _squash(body: Node2D) -> void:
 	_dead = true
 	velocity = Vector2.ZERO
 	_hitbox.set_deferred("monitoring", false)
@@ -75,6 +80,9 @@ func _squash() -> void:
 
 	Audio.play("stomp", -2.0, randf_range(0.95, 1.05))
 	Effects.stomp(get_parent(), global_position)
+	Effects.hit_stop(get_tree(), stomp_hit_stop_duration, stomp_hit_stop_scale)
+	if body.has_method("shake_camera"):
+		body.shake_camera(stomp_shake_strength, 0.16)
 
 	await get_tree().create_timer(SQUASH_TIME).timeout
 	queue_free()

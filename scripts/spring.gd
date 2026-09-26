@@ -7,6 +7,8 @@ extends Area2D
 const SQUASH_TIME := 0.1
 const VISUAL_HALF := Vector2(12.0, 6.0)
 
+const Effects := preload("res://scripts/effects.gd")
+
 @onready var _visual: ColorRect = $Visual
 
 
@@ -22,6 +24,9 @@ func _on_body_entered(body: Node2D) -> void:
 
 	body.bounce(launch_velocity)
 	Audio.play("spring", -2.0, randf_range(0.94, 1.04))
+	Effects.spring_burst(get_parent(), global_position + Vector2(0.0, -4.0))
+	if body.has_method("shake_camera"):
+		body.shake_camera(2.5, 0.12)
 
 	_visual.scale.y = 0.45
 	var tween := create_tween()

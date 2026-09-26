@@ -40,14 +40,14 @@ func _ready() -> void:
 # ---------------------------------------------------------------- 测试用例
 
 func _test_audio() -> void:
-	# 音效文件还没落位，这里只确认接入点齐全且「缺文件不崩」
 	for sound in ["jump", "land", "coin", "stomp", "hurt", "spring",
 			"drop", "checkpoint", "pause", "clear", "game_over"]:
+		_expect("音效文件已加载：%s" % sound, Audio.has_stream("res://assets/audio/sfx/", sound))
 		Audio.play(sound)
+	_expect("背景音乐 level_01 已加载", Audio.has_stream("res://assets/audio/bgm/", "level_01"))
 	Audio.play_bgm("level_01")
 	Audio.stop_bgm(0.0)
 
-	# 8 个音效播放器 + 1 个背景音乐播放器
 	_expect("音效播放池已就绪", Audio.get_child_count() >= 9, str(Audio.get_child_count()))
 
 
@@ -81,7 +81,11 @@ func _test_camera_shake() -> void:
 	_expect("震屏产生了偏移", max_offset > 0.0, "%.2f" % max_offset)
 
 	await get_tree().create_timer(0.5).timeout
-	_expect("震屏会自己衰减回零", camera.offset.is_equal_approx(Vector2.ZERO), str(camera.offset))
+	_expect("震屏强度会衰减回零", camera.call("get_shake_strength") < 0.05,
+			str(camera.call("get_shake_strength")))
+
+	var look_ahead: float = camera.get("look_ahead_distance")
+	_expect("相机前瞻参数已暴露", look_ahead > 0.0, str(look_ahead))
 
 
 func _test_jump_heights() -> void:

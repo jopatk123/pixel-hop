@@ -14,6 +14,8 @@ const EXTENSIONS := ["wav", "ogg", "mp3"]
 
 const BGM_BUS := "BGM"
 const SFX_BUS := "SFX"
+## 背景音乐正常播放时的音量（低于 SFX，避免盖过反馈音）
+const BGM_VOLUME_DB := -10.0
 
 var _pool: Array[AudioStreamPlayer] = []
 var _next_player := 0
@@ -63,12 +65,12 @@ func play_bgm(track: String, fade := 0.6) -> void:
 
 	_enable_loop(stream)
 	_bgm_player.stream = stream
-	_bgm_player.volume_db = -30.0 if fade > 0.0 else 0.0
+	_bgm_player.volume_db = -30.0 if fade > 0.0 else BGM_VOLUME_DB
 	_bgm_player.play()
 
 	if fade > 0.0:
 		var tween := create_tween()
-		tween.tween_property(_bgm_player, "volume_db", 0.0, fade)
+		tween.tween_property(_bgm_player, "volume_db", BGM_VOLUME_DB, fade)
 
 
 func stop_bgm(fade := 0.6) -> void:
@@ -83,7 +85,12 @@ func stop_bgm(fade := 0.6) -> void:
 	tween.tween_property(_bgm_player, "volume_db", -30.0, fade)
 	await tween.finished
 	_bgm_player.stop()
-	_bgm_player.volume_db = 0.0
+	_bgm_player.volume_db = BGM_VOLUME_DB
+
+
+## 冒烟测试用：确认某个音效或 BGM 文件能被 ResourceLoader 找到
+func has_stream(dir_path: String, name: String) -> bool:
+	return _load_stream(dir_path, name) != null
 
 
 ## 运行时建 BGM / SFX 两条总线，省得再维护一份 default_bus_layout.tres

@@ -3,7 +3,7 @@
 一个 2D 平台跳跃小游戏，Godot 4.7 制作，目标是在 itch.io 上发布。
 
 目前处于**垂直切片**阶段：一个能从头玩到尾的关卡已经跑通，正在打磨手感、音效和反馈层。
-画面全是程序生成的占位色块，音效文件也还没落位——**克隆下来不用任何素材就能直接跑**。
+画面是程序生成的占位色块；音效与 BGM 已随仓库附带（由 `tools/gen_sfx.py` 生成），克隆即可听到声音。
 
 ## 操作
 
@@ -53,7 +53,8 @@ scripts/           所有 GDScript
   audio_manager.gd   音效总管（autoload: Audio）
   effects.gd         一次性粒子特效
   game_camera.gd     带震屏的相机
-assets/audio/      音效与背景音乐
+assets/audio/      音效与背景音乐（wav）
+tools/gen_sfx.py   程序化生成全部音效与 BGM
 test_phase1.gd     无头模式冒烟测试
 ```
 
@@ -68,15 +69,36 @@ test_phase1.gd     无头模式冒烟测试
 重力由它们反推。选中 `scenes/player.tscn` 的根节点，在检查器里改完立刻能在游戏里试。
 另外还有土狼时间、跳跃缓冲、最高点滞空、可变跳跃高度等参数，都挂在一起。
 
+### 反馈与镜头
+
+- **玩家**（`player.gd` → 检查器「反馈」）：`death_shake_strength`、`land_shake_strength`、
+  `death_hit_stop_duration` / `death_hit_stop_scale`、`flash_duration`、`turn_dust_speed_threshold`
+- **敌人**（`enemy.gd` →「反馈」）：踩头顿帧与震屏 `stomp_hit_stop_*`、`stomp_shake_strength`
+- **相机**（`game_camera.gd`）：`look_ahead_distance`、`look_ahead_speed`、
+  `vertical_deadzone`、`vertical_follow_speed`、`default_shake_duration`
+
+粒子种类与颜色集中在 `effects.gd` 顶部的常量字典里。
+
 ## 音效
 
-代码里的接入点已经全部埋好，把文件按名字丢进去就自动生效，**缺文件只是静默跳过**，不会报错。
+代码里的接入点已全部接好；仓库内已有程序化生成的 wav，**缺文件时仍会静默跳过**（调试构建会打印提示）。
 
 - 音效 → `assets/audio/sfx/`，文件名即音效名：
   `jump` `land` `coin` `stomp` `hurt` `spring` `drop` `checkpoint` `pause` `clear` `game_over`
-- 背景音乐 → `assets/audio/bgm/level_01`
+- 背景音乐 → `assets/audio/bgm/level_01`（循环播放，音量低于 SFX 总线）
 
-支持 wav / ogg / mp3。推荐用 [sfxr.me](https://sfxr.me) 生成 8-bit 音效（导出 wav，CC0 可商用）。
+### 重新生成音频
+
+需要改音色时，只动生成器顶部的参数，然后：
+
+```bash
+python3 tools/gen_sfx.py
+godot --path . --import   # 让 Godot 重新导入 wav
+```
+
+`tools/gen_sfx.py` 仅用 Python 标准库，合成 sfxr 风格的短音效和约 8 小节的 chiptune BGM（128 BPM，整小节循环）。
+
+也支持自行替换为 wav / ogg / mp3（例如 [sfxr.me](https://sfxr.me) 导出的素材），文件名保持一致即可。
 
 ## 测试
 
@@ -85,14 +107,15 @@ godot --headless --path . res://test_phase1.tscn
 ```
 
 一套冒烟测试，覆盖跳跃高度与水平速度基线、金币、检查点、弹簧、移动平台、单向平台下穿、
-踩敌、侧碰死亡、掉坑死亡、命数耗尽、通关结算与写盘，以及粒子特效和震屏。
+踩敌、侧碰死亡、掉坑死亡、命数耗尽、通关结算与写盘，以及**全部 11 个音效 + BGM 是否加载**、
+粒子特效、相机前瞻参数与震屏。
 全过时退出码为 0，有失败项会打印具体是哪条。
 
 ## 开发进度
 
 - [x] Phase 0 手感原型 —— 跳跃手感与基线测量
 - [x] Phase 1 系统与流程 —— 金币 / 命数 / 计时 / 检查点 / 结算 / 存档
-- [ ] Phase 2 垂直切片 —— 音效、反馈、镜头、关卡节奏（进行中）
+- [x] Phase 2 垂直切片 —— 程序化音效/BGM、顿帧与粒子反馈、镜头前瞻（关卡节奏仍可调）
 - [ ] Phase 3 内容量产 —— 真素材、多关卡
 - [ ] Phase 4 上线准备 —— 导出、itch.io 页面
 
