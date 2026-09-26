@@ -1,0 +1,8 @@
+[gd_resource type="SystemFont" format=3]
+
+; 界面默认字体。按顺序取各平台上第一个装有的中文字体，都找不到时由
+; allow_system_fallback 兜底，交给系统挑一个能显示中文的。
+; 注意：macOS 上 PingFang 位于系统私有路径，Godot 加载不了，所以排 Hiragino 在前。
+[resource]
+font_names = PackedStringArray("Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", "WenQuanYi Micro Hei", "Arial Unicode MS")
+allow_system_fallback = true

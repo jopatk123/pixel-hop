@@ -6,3 +6,9 @@ export_presets.cfg
 
 # macOS
 .DS_Store
+
+# 本地 MCP 配置（含本机端口）
+.trae/
+
+# 第三方编辑器插件（Godot MCP，源码在 ~/code/Godot-MCP-Native）
+/addons/godot_mcp/
